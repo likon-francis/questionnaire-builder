@@ -1,7 +1,7 @@
-'use client';
 import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
+import { Save, Share2, Plus, Trash2, GripVertical, Check, Copy, ExternalLink, Settings as SettingsIcon, ChevronRight, FileText } from 'lucide-react';
 import { Questionnaire, Question, QuestionType } from '@/types/schema';
 import { getQuestionnaire, saveQuestionnaire } from '../../actions';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -32,9 +32,11 @@ function SortableItem(props: { id: string; children: React.ReactNode }) {
                 justifyContent: 'center',
                 background: 'var(--secondary)',
                 borderRadius: 'var(--radius)',
-                flexShrink: 0
+                flexShrink: 0,
+                color: 'var(--secondary-foreground)',
+                opacity: 0.5
             }}>
-                <span style={{ fontSize: '1.5rem', color: 'var(--secondary-foreground)', writingMode: 'vertical-rl', opacity: 0.5 }}>⋮⋮</span>
+                <GripVertical size={20} />
             </div>
         </div>
     );
@@ -193,11 +195,14 @@ export default function BuilderPage({ params }: { params: Promise<{ id: string }
                     placeholder="Questionnaire Title"
                 />
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button onClick={() => setShowShare(!showShare)} className="btn btn-secondary" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></svg>
+                    <button onClick={() => setShowShare(!showShare)} className="btn btn-secondary">
+                        <Share2 size={18} />
                         Share
                     </button>
-                    <button onClick={save} className="btn btn-primary">Save & Publish</button>
+                    <button onClick={save} className="btn btn-primary">
+                        <Save size={18} />
+                        Save & Publish
+                    </button>
                 </div>
             </div>
 
@@ -261,21 +266,21 @@ export default function BuilderPage({ params }: { params: Promise<{ id: string }
                             <SortableItem key={q.id} id={q.id}>
                                 <div className="card animate-fade-in">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'center' }}>
-                                        <h4 style={{ color: 'var(--primary)' }}>Question {index + 1}</h4>
+                                        <h4 style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <FileText size={16} />
+                                            Question {index + 1}
+                                        </h4>
                                         <button onClick={() => deleteQuestion(q.id)}
                                             style={{
                                                 color: '#ef4444',
                                                 background: '#fee2e2',
                                                 border: '1px solid #fca5a5',
-                                                fontSize: '0.875rem',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.25rem',
-                                                padding: '0.25rem 0.5rem',
-                                                borderRadius: '4px'
+                                                fontSize: '0.75rem',
+                                                fontWeight: 800,
+                                                padding: '0.4rem 0.75rem'
                                             }}
                                             className="btn btn-ghost">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
+                                            <Trash2 size={14} />
                                             Delete
                                         </button>
                                     </div>

@@ -241,6 +241,8 @@ export async function getResponseCounts(): Promise<Record<string, number>> {
 
 export async function getProjectStats() {
     noStore();
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
     // Get all projects
     const { data: projects, error: projError } = await supabase
@@ -260,11 +262,25 @@ export async function getProjectStats() {
     const projectPromises = projects.map(async (project) => {
         const projectQuestionnaires = questionnaires.filter(q => q.project_id === project.id);
 
+        const qIds = projectQuestionnaires.map(q => q.id);
+        let responseCount = 0;
+        let thisMonthResponses = 0;
+        if (qIds.length > 0) {
+            const [totalRes, monthRes] = await Promise.all([
+                supabase.from('responses').select('*', { count: 'exact', head: true }).in('questionnaire_id', qIds),
+                supabase.from('responses').select('*', { count: 'exact', head: true }).in('questionnaire_id', qIds).gte('submitted_at', startOfMonth)
+            ]);
+            responseCount = totalRes.count || 0;
+            thisMonthResponses = monthRes.count || 0;
+        }
+
         return {
             projectId: project.id,
             stats: {
                 questionnaireCount: projectQuestionnaires.length,
-                questionCount: projectQuestionnaires.reduce((sum, q) => sum + (q.questions?.length || 0), 0)
+                questionCount: projectQuestionnaires.reduce((sum, q) => sum + (q.questions?.length || 0), 0),
+                responseCount,
+                thisMonthResponses
             }
         };
     });
@@ -274,6 +290,8 @@ export async function getProjectStats() {
     const stats: Record<string, {
         questionnaireCount: number;
         questionCount: number;
+        responseCount: number;
+        thisMonthResponses: number;
     }> = {};
 
     results.forEach(r => {

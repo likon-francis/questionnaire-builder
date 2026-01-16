@@ -1,21 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { LayoutDashboard, BarChart2, Settings, FileText, PieChart, Activity, Box } from 'lucide-react';
 
 export default function Navigation() {
     const pathname = usePathname();
-    const router = useRouter();
     const searchParams = useSearchParams();
 
     // Hide if hideNav param is present
     if (searchParams.get('hideNav')) return null;
 
     // Extract ID if present (assuming routes like /builder/[id], /survey/[id], etc.)
-
-    // We look for the 3rd segment usually: /section/id
     const segments = pathname?.split('/') || [];
-    const activeSection = segments[1]; // builder, survey, stats, report
+    const activeSection = segments[1];
     const activeId = segments[2];
 
     const hasId = activeId && activeId !== 'new';
@@ -23,77 +21,127 @@ export default function Navigation() {
     return (
         <nav style={{
             borderBottom: '1px solid var(--border)',
-            background: 'var(--surface)',
+            background: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
             position: 'sticky',
             top: 0,
             zIndex: 100,
-            padding: '0 1rem'
+            padding: '0 1.5rem'
         }}>
-            <div className="container" style={{ display: 'flex', alignItems: 'center', height: '60px', justifyContent: 'space-between' }}>
+            <div className="container" style={{ display: 'flex', alignItems: 'center', height: '72px', justifyContent: 'space-between' }}>
 
                 {/* Left: Brand / Home */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-                    <Link href="/" style={{ textDecoration: 'none', fontWeight: 700, fontSize: '1.25rem', color: 'var(--foreground)' }}>
-                        SurveyApp
-                    </Link>
-
-                    {/* Dashboard Link (Always visible) */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2.5rem' }}>
                     <Link href="/" style={{
                         textDecoration: 'none',
-                        fontSize: '0.875rem',
-                        color: pathname === '/' ? 'var(--primary)' : 'var(--secondary-foreground)',
-                        fontWeight: 500
+                        fontWeight: 800,
+                        fontSize: '1.5rem',
+                        color: 'var(--foreground)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        letterSpacing: '-0.03em'
                     }}>
-                        Dashboard
+                        <div style={{
+                            width: '32px',
+                            height: '32px',
+                            background: 'var(--primary)',
+                            borderRadius: '8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white'
+                        }}>
+                            <Activity size={20} strokeWidth={3} />
+                        </div>
+                        InsightFlow
                     </Link>
 
-                    {/* Usage Link */}
-                    <Link href="/usage" style={{
-                        textDecoration: 'none',
-                        fontSize: '0.875rem',
-                        color: pathname === '/usage' ? 'var(--primary)' : 'var(--secondary-foreground)',
-                        fontWeight: 500
-                    }}>
-                        Usage
-                    </Link>
+                    {/* Nav Links */}
+                    <div style={{ display: 'flex', gap: '1.5rem' }}>
+                        <Link href="/" style={{
+                            textDecoration: 'none',
+                            fontSize: '0.9375rem',
+                            color: pathname === '/' ? 'var(--primary)' : 'var(--secondary-foreground)',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.5rem 0.25rem',
+                            borderBottom: pathname === '/' ? '2px solid var(--primary)' : '2px solid transparent',
+                            transition: 'all 0.2s'
+                        }}>
+                            <LayoutDashboard size={18} />
+                            Dashboard
+                        </Link>
+
+                        <Link href="/usage" style={{
+                            textDecoration: 'none',
+                            fontSize: '0.9375rem',
+                            color: pathname === '/usage' ? 'var(--primary)' : 'var(--secondary-foreground)',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.5rem 0.25rem',
+                            borderBottom: pathname === '/usage' ? '2px solid var(--primary)' : '2px solid transparent',
+                            transition: 'all 0.2s'
+                        }}>
+                            <Box size={18} />
+                            Resources
+                        </Link>
+                    </div>
                 </div>
 
 
-                {/* Center: Questionnaire Context Menu */}
+                {/* Center/Right: Questionnaire Context Menu */}
                 {hasId && (
-                    <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--secondary)', padding: '0.25rem', borderRadius: 'var(--radius)' }}>
+                    <div className="glass" style={{
+                        display: 'flex',
+                        gap: '0.25rem',
+                        background: 'rgba(241, 245, 249, 0.5)',
+                        padding: '0.375rem',
+                        borderRadius: 'var(--radius)',
+                        boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
+                    }}>
                         {[
-                            { label: 'Setup', path: `/builder/${activeId}` },
-                            { label: 'Form', path: `/survey/${activeId}` },
-                            { label: 'Report', path: `/report/${activeId}` },
-                            { label: 'Stat', path: `/stats/${activeId}` },
-                            { label: 'Settings', path: `/settings/${activeId}` },
+                            { label: 'Setup', icon: Settings, path: `/builder/${activeId}` },
+                            { label: 'Preview', icon: FileText, path: `/survey/${activeId}` },
+                            { label: 'Stats', icon: BarChart2, path: `/stats/${activeId}` },
+                            { label: 'Report', icon: PieChart, path: `/report/${activeId}` },
+                            { label: 'Settings', icon: Settings, path: `/settings/${activeId}` },
                         ].map(item => {
-                            const isActive = pathname.startsWith(item.path.split('/')[1] === 'survey' ? item.path : item.path);
-                            // Simple check: strict match or prefix? 
-                            // Actually item.path is /builder/id. pathname is /builder/id. Match.
-                            const isMatch = pathname === item.path;
+                            const isMatch = pathname.startsWith(item.path);
+                            const Icon = item.icon;
 
                             return (
                                 <Link key={item.path} href={item.path} style={{
-                                    padding: '0.25rem 1rem',
+                                    padding: '0.5rem 1rem',
                                     fontSize: '0.875rem',
-                                    borderRadius: 'calc(var(--radius) - 2px)',
+                                    borderRadius: 'calc(var(--radius) - 4px)',
                                     textDecoration: 'none',
-                                    color: isMatch ? 'var(--primary-foreground)' : 'var(--secondary-foreground)',
+                                    color: isMatch ? 'white' : 'var(--secondary-foreground)',
                                     background: isMatch ? 'var(--primary)' : 'transparent',
-                                    fontWeight: 500,
-                                    transition: 'all 0.2s'
+                                    fontWeight: 600,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    boxShadow: isMatch ? '0 4px 6px -1px rgba(99, 102, 241, 0.2)' : 'none'
                                 }}>
-                                    {item.label}
+                                    <Icon size={16} />
+                                    <span>{item.label}</span>
                                 </Link>
                             );
                         })}
                     </div>
                 )}
 
-                {/* Right: Actions / Back -- REMOVED as per request */}
-                <div></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    {/* Placeholder for Profile or Notification */}
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--secondary)', border: '1px solid var(--border)' }} />
+                </div>
 
             </div>
         </nav>
