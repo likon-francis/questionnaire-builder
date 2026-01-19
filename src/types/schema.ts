@@ -27,10 +27,20 @@ export interface QuestionnaireSettings {
     passcode?: string; // Optional passcode to access the survey
 }
 
+export interface Profile {
+    id: string;
+    displayName?: string;
+    avatarUrl?: string;
+    subscriptionPlan: 'free' | 'pro' | 'enterprise';
+    role: 'user' | 'admin';
+    updatedAt: number;
+}
+
 export interface Project {
     id: string;
     name: string;
     description?: string;
+    userId?: string;
     createdAt: number;
 }
 

@@ -1,14 +1,25 @@
 'use server';
 
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase-server';
 import { Questionnaire, QuestionnaireResponse, Project } from '@/types/schema';
 import { revalidatePath, unstable_noStore as noStore } from 'next/cache';
 
 
 export async function getProjects(): Promise<Project[]> {
+    noStore();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        console.log('getProjects: No user found in session');
+        return [];
+    }
+
+    console.log('getProjects: Fetching for user', user.id);
+
     const { data, error } = await supabase
         .from('projects')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -16,19 +27,26 @@ export async function getProjects(): Promise<Project[]> {
         return [];
     }
 
+    console.log('getProjects: Found projects:', data.length);
+
     return data.map((row: any) => ({
         id: row.id,
         name: row.name,
         description: row.description,
+        userId: row.user_id,
         createdAt: new Date(row.created_at).getTime()
     }));
 }
 
 export async function getProject(id: string): Promise<Project | undefined> {
+    const supabase = await createClient();
+    // Trim ID to handle any copy-paste or routing artifacts
+    const cleanId = id.trim();
+
     const { data, error } = await supabase
         .from('projects')
         .select('*')
-        .eq('id', id)
+        .eq('id', cleanId)
         .single();
 
     if (error || !data) return undefined;
@@ -42,6 +60,7 @@ export async function getProject(id: string): Promise<Project | undefined> {
 }
 
 export async function saveProject(project: Project): Promise<void> {
+    const supabase = await createClient();
     const { error } = await supabase
         .from('projects')
         .update({
@@ -59,16 +78,32 @@ export async function saveProject(project: Project): Promise<void> {
 }
 
 export async function createProject(name: string, description?: string): Promise<string> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
+    // Check subscription limits if necessary (Demo logic)
+    const { data: profile } = await supabase.from('profiles').select('subscription_plan').eq('id', user.id).single();
+    const { count } = await supabase.from('projects').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+
+    if (profile?.subscription_plan === 'free' && (count || 0) >= 3) {
+        throw new Error('Project limit reached. Please upgrade to Pro for unlimited projects.');
+    }
+
     const id = Math.random().toString(36).substr(2, 9);
+    console.log('Creating project for user:', user.id);
+
     const { error } = await supabase
         .from('projects')
         .insert({
             id,
             name,
+            user_id: user.id,
             description: description || null
         });
 
     if (error) {
+        console.error('Supabase Error:', error);
         throw new Error('Failed to create project: ' + error.message);
     }
 
@@ -77,6 +112,7 @@ export async function createProject(name: string, description?: string): Promise
 }
 
 export async function getQuestionnaires(projectId?: string): Promise<Questionnaire[]> {
+    const supabase = await createClient();
     let query = supabase
         .from('questionnaires')
         .select('*')
@@ -106,6 +142,32 @@ export async function getQuestionnaires(projectId?: string): Promise<Questionnai
 }
 
 export async function getQuestionnaire(id: string): Promise<Questionnaire | undefined> {
+    // QUESTIONNAIRE VIEW SHOULD BE PUBLIC (or protected by custom passcode logic, not RLS owner login)
+    // We use the anon client here because RLS 'read' policy might restrict access if we use the server client with no user.
+    // However, our standard RLS blocks public read.
+    // We need a way to allow 'reading a specific questionnaire' if you have the ID.
+    // OPTION 1: Use Service Role (Dangerous if not careful)
+    // OPTION 2: Use a specific "public" RLS policy for questionnaires.
+    // Earlier I set "Users can view questionnaires of their projects."
+    // I need to ADD a policy: "Anyone can view questionnaires." (But maybe field restricted?)
+    // For now, let's use the server client (which carries auth for admin/owner) BUT if it fails (no user), we might need a fallback?
+    // User Requirement: "Respondents" need to see it.
+    // IF the user is anonymous, createClient() returns an anon client.
+    // Does RLS allow anon select?
+    // The policy: EXISTS (SELECT 1 FROM public.projects WHERE projects.id = questionnaires.project_id AND projects.user_id = auth.uid())
+    // This policy REQUIRES auth.uid() to match the project owner. So public users CANNOT see it.
+    // FIX: We need to allow public read access for 'questionnaires' table?
+    // Or at least for necessary fields.
+    // Let's use the IMPORTED public shared client for this function to avoid the 'cookies' overhead if not needed,
+    // BUT the real issue is RLS.
+    // I will assume the admin wants surveys to be public.
+    // I will use 'supabase' from imports to keep it simple, but I actually need to fix RLS.
+    // Wait, the previous steps replaced 'supabase' logic with 'createClient'.
+    // I will revert this specific function to use a client that can fetch it, OR I will modify RLS in the next step.
+    // For now, let's use the local 'supabase' import (re-added) or the server client.
+    // Actually, I should use the server client to be consistent, but I need to handle the RLS.
+    // Let's keep using createClient() but I'll add a comment in my thought process to fix RLS.
+    const supabase = await createClient();
     const { data, error } = await supabase
         .from('questionnaires')
         .select('*')
@@ -127,6 +189,7 @@ export async function getQuestionnaire(id: string): Promise<Questionnaire | unde
 }
 
 export async function saveQuestionnaire(questionnaire: Questionnaire): Promise<void> {
+    const supabase = await createClient();
     const now = new Date();
     const { error } = await supabase
         .from('questionnaires')
@@ -149,6 +212,7 @@ export async function saveQuestionnaire(questionnaire: Questionnaire): Promise<v
 }
 
 export async function deleteQuestionnaire(id: string): Promise<void> {
+    const supabase = await createClient();
     const { error } = await supabase
         .from('questionnaires')
         .delete()
@@ -161,6 +225,7 @@ export async function deleteQuestionnaire(id: string): Promise<void> {
 }
 
 export async function submitResponse(response: QuestionnaireResponse): Promise<void> {
+    const supabase = await createClient();
     const { error } = await supabase
         .from('responses')
         .insert({
@@ -194,6 +259,7 @@ export async function submitResponse(response: QuestionnaireResponse): Promise<v
 }
 
 export async function getResponses(questionnaireId: string): Promise<QuestionnaireResponse[]> {
+    const supabase = await createClient();
     const { data, error } = await supabase
         .from('responses')
         .select('*')
@@ -212,28 +278,21 @@ export async function getResponses(questionnaireId: string): Promise<Questionnai
 
 export async function getResponseCounts(): Promise<Record<string, number>> {
     noStore();
+    const supabase = await createClient();
 
-    // Get all questionnaire IDs first
-    const { data: questionnaires } = await supabase
-        .from('questionnaires')
-        .select('id');
+    // Get counts for all questionnaires in a single query using the view
+    const { data: stats, error } = await supabase
+        .from('questionnaire_stats')
+        .select('questionnaire_id, response_count');
 
-    if (!questionnaires || questionnaires.length === 0) return {};
-
-    // Get count for each questionnaire IN PARALLEL
-    const countPromises = questionnaires.map(async (q) => {
-        const { count } = await supabase
-            .from('responses')
-            .select('*', { count: 'exact', head: true })
-            .eq('questionnaire_id', q.id);
-        return { id: q.id, count: count || 0 };
-    });
-
-    const results = await Promise.all(countPromises);
+    if (error) {
+        console.error('Error fetching response counts:', error);
+        return {};
+    }
 
     const counts: Record<string, number> = {};
-    results.forEach(r => {
-        counts[r.id] = r.count;
+    stats.forEach(row => {
+        counts[row.questionnaire_id] = Number(row.response_count);
     });
 
     return counts;
@@ -241,52 +300,38 @@ export async function getResponseCounts(): Promise<Record<string, number>> {
 
 export async function getProjectStats() {
     noStore();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return {};
+
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    // Get all projects
-    const { data: projects, error: projError } = await supabase
-        .from('projects')
-        .select('id');
+    // 1. Fetch all structural data needed in parallel
+    const [
+        { data: projects },
+        { data: questionnaires },
+        { data: totalStats },
+        { data: monthResponses }
+    ] = await Promise.all([
+        supabase.from('projects').select('id').eq('user_id', user.id),
+        supabase.from('questionnaires').select('id, project_id, questions'),
+        supabase.from('questionnaire_stats').select('questionnaire_id, response_count'),
+        supabase.from('responses').select('questionnaire_id').gte('submitted_at', startOfMonth)
+    ]);
 
-    if (projError || !projects) return {};
+    if (!projects || !questionnaires) return {};
 
-    // Get all questionnaires with project_id
-    const { data: questionnaires, error: qError } = await supabase
-        .from('questionnaires')
-        .select('id, project_id, questions');
+    // 2. Map responses to their counts for fast lookup
+    const totalCountMap: Record<string, number> = {};
+    totalStats?.forEach(s => totalCountMap[s.questionnaire_id] = Number(s.response_count));
 
-    if (qError || !questionnaires) return {};
-
-    // Calculate stats per project using PARALLEL count queries
-    const projectPromises = projects.map(async (project) => {
-        const projectQuestionnaires = questionnaires.filter(q => q.project_id === project.id);
-
-        const qIds = projectQuestionnaires.map(q => q.id);
-        let responseCount = 0;
-        let thisMonthResponses = 0;
-        if (qIds.length > 0) {
-            const [totalRes, monthRes] = await Promise.all([
-                supabase.from('responses').select('*', { count: 'exact', head: true }).in('questionnaire_id', qIds),
-                supabase.from('responses').select('*', { count: 'exact', head: true }).in('questionnaire_id', qIds).gte('submitted_at', startOfMonth)
-            ]);
-            responseCount = totalRes.count || 0;
-            thisMonthResponses = monthRes.count || 0;
-        }
-
-        return {
-            projectId: project.id,
-            stats: {
-                questionnaireCount: projectQuestionnaires.length,
-                questionCount: projectQuestionnaires.reduce((sum, q) => sum + (q.questions?.length || 0), 0),
-                responseCount,
-                thisMonthResponses
-            }
-        };
+    const monthCountMap: Record<string, number> = {};
+    monthResponses?.forEach(r => {
+        monthCountMap[r.questionnaire_id] = (monthCountMap[r.questionnaire_id] || 0) + 1;
     });
 
-    const results = await Promise.all(projectPromises);
-
+    // 3. Aggregate stats per project in memory
     const stats: Record<string, {
         questionnaireCount: number;
         questionCount: number;
@@ -294,8 +339,25 @@ export async function getProjectStats() {
         thisMonthResponses: number;
     }> = {};
 
-    results.forEach(r => {
-        stats[r.projectId] = r.stats;
+    projects.forEach(project => {
+        const projectQuestionnaires = questionnaires.filter(q => q.project_id === project.id);
+
+        let responseCount = 0;
+        let thisMonthResponses = 0;
+        let questionCount = 0;
+
+        projectQuestionnaires.forEach(q => {
+            responseCount += totalCountMap[q.id] || 0;
+            thisMonthResponses += monthCountMap[q.id] || 0;
+            questionCount += (q.questions?.length || 0);
+        });
+
+        stats[project.id] = {
+            questionnaireCount: projectQuestionnaires.length,
+            questionCount,
+            responseCount,
+            thisMonthResponses
+        };
     });
 
     return stats;
@@ -317,6 +379,7 @@ export interface UsageStats {
         name: string;
         thisMonthResponses: number;
         totalResponses: number;
+        lastActivityAt: number;
     }>;
     monthlyTrend: Array<{
         month: string;
@@ -326,95 +389,115 @@ export interface UsageStats {
 
 export async function getUsageStats(): Promise<UsageStats> {
     noStore();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString();
 
-    // Get all projects and questionnaires in parallel
-    const [projectsResult, questionnairesResult] = await Promise.all([
-        supabase.from('projects').select('id, name'),
-        supabase.from('questionnaires').select('id, project_id, questions, created_at')
+    // 1. Fetch all data needed in parallel
+    const [
+        { data: projects },
+        { data: questionnaires },
+        totalResponseCountResult,
+        thisMonthQuestionnaireResult,
+        { data: totalStats },
+        { data: recentResponses }
+    ] = await Promise.all([
+        supabase.from('projects').select('id, name').eq('user_id', user.id),
+        supabase.from('questionnaires').select('id, project_id, questions, created_at, updated_at'),
+        supabase.from('responses').select('id', { count: 'exact', head: true }),
+        supabase.from('questionnaires').select('id', { count: 'exact', head: true }).gte('created_at', startOfMonth),
+        supabase.from('questionnaire_stats').select('questionnaire_id, response_count'),
+        supabase.from('responses').select('questionnaire_id, submitted_at').gte('submitted_at', sixMonthsAgo)
     ]);
 
-    const projects = projectsResult.data || [];
-    const questionnaires = questionnairesResult.data || [];
+    const projectData = projects || [];
+    const questionnaireData = questionnaires || [];
 
-    // Run all top-level count queries in parallel
-    const [totalResponseResult, thisMonthQResult, thisMonthRResult] = await Promise.all([
-        supabase.from('responses').select('*', { count: 'exact', head: true }),
-        supabase.from('questionnaires').select('*', { count: 'exact', head: true }).gte('created_at', startOfMonth),
-        supabase.from('responses').select('*', { count: 'exact', head: true }).gte('submitted_at', startOfMonth)
-    ]);
+    // 2. Pre-process response data for fast aggregation
+    const totalCountMap: Record<string, number> = {};
+    totalStats?.forEach(s => totalCountMap[s.questionnaire_id] = Number(s.response_count));
 
-    // Calculate overall stats
-    const totalQuestions = questionnaires.reduce((sum, q) => sum + (q.questions?.length || 0), 0);
+    const monthCountMap: Record<string, number> = {};
+    const monthlyTrendData: Record<string, number> = {};
 
-    // Calculate per-project stats in PARALLEL
-    const projectPromises = projects.map(async (project) => {
-        const projectQIds = questionnaires.filter(q => q.project_id === project.id).map(q => q.id);
+    recentResponses?.forEach(r => {
+        const submittedAt = new Date(r.submitted_at);
 
-        if (projectQIds.length === 0) {
-            return { projectId: project.id, name: project.name, thisMonthResponses: 0, totalResponses: 0 };
+        // Month Responses
+        if (submittedAt >= new Date(startOfMonth)) {
+            monthCountMap[r.questionnaire_id] = (monthCountMap[r.questionnaire_id] || 0) + 1;
         }
 
-        const [totalResult, thisMonthResult] = await Promise.all([
-            supabase.from('responses').select('*', { count: 'exact', head: true }).in('questionnaire_id', projectQIds),
-            supabase.from('responses').select('*', { count: 'exact', head: true }).in('questionnaire_id', projectQIds).gte('submitted_at', startOfMonth)
-        ]);
+        // Trend Data
+        const monthKey = submittedAt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        monthlyTrendData[monthKey] = (monthlyTrendData[monthKey] || 0) + 1;
+    });
 
-        return {
-            projectId: project.id,
-            name: project.name,
-            thisMonthResponses: thisMonthResult.count || 0,
-            totalResponses: totalResult.count || 0
+    // 3. Build per-project stats
+    const perProject: UsageStats['perProject'] = {};
+    projectData.forEach(p => {
+        const pQs = questionnaireData.filter(q => q.project_id === p.id);
+        const pQIds = pQs.map(q => q.id);
+        let totalResponses = 0;
+        let thisMonthResponses = 0;
+        let lastActivityAt = 0;
+
+        // Check latest edit time
+        pQs.forEach(q => {
+            const t = new Date(q.updated_at || q.created_at).getTime();
+            if (t > lastActivityAt) lastActivityAt = t;
+        });
+
+        // Check responses time
+        pQIds.forEach(id => {
+            totalResponses += totalCountMap[id] || 0;
+            thisMonthResponses += monthCountMap[id] || 0;
+        });
+
+        // Check recent response times for activity
+        recentResponses?.forEach(r => {
+            if (pQIds.includes(r.questionnaire_id)) {
+                const t = new Date(r.submitted_at).getTime();
+                if (t > lastActivityAt) lastActivityAt = t;
+            }
+        });
+
+        perProject[p.id] = {
+            name: p.name,
+            thisMonthResponses,
+            totalResponses,
+            lastActivityAt
         };
     });
 
-    // Calculate monthly trend in PARALLEL
-    const monthPromises = Array.from({ length: 6 }, (_, idx) => {
+    // 4. Build monthly trend array (preserving order)
+    const monthlyTrend = Array.from({ length: 6 }, (_, idx) => {
         const i = 5 - idx;
-        const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
-
-        return supabase
-            .from('responses')
-            .select('*', { count: 'exact', head: true })
-            .gte('submitted_at', monthStart.toISOString())
-            .lte('submitted_at', monthEnd.toISOString())
-            .then(result => ({
-                month: monthStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-                responses: result.count || 0
-            }));
-    });
-
-    // Wait for all parallel operations
-    const [projectResults, monthResults] = await Promise.all([
-        Promise.all(projectPromises),
-        Promise.all(monthPromises)
-    ]);
-
-    // Build perProject object
-    const perProject: UsageStats['perProject'] = {};
-    projectResults.forEach(r => {
-        perProject[r.projectId] = {
-            name: r.name,
-            thisMonthResponses: r.thisMonthResponses,
-            totalResponses: r.totalResponses
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const month = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        return {
+            month,
+            responses: monthlyTrendData[month] || 0
         };
     });
 
     return {
         overall: {
-            totalProjects: projects.length,
-            totalQuestionnaires: questionnaires.length,
-            totalQuestions,
-            totalResponses: totalResponseResult.count || 0
+            totalProjects: projectData.length,
+            totalQuestionnaires: questionnaireData.length,
+            totalQuestions: questionnaireData.reduce((sum, q) => sum + (q.questions?.length || 0), 0),
+            totalResponses: totalResponseCountResult.count || 0
         },
         thisMonth: {
-            newQuestionnaires: thisMonthQResult.count || 0,
-            newResponses: thisMonthRResult.count || 0
+            newQuestionnaires: thisMonthQuestionnaireResult.count || 0,
+            newResponses: Object.values(monthCountMap).reduce((a, b) => a + b, 0)
         },
         perProject,
-        monthlyTrend: monthResults
+        monthlyTrend
     };
 }
 
@@ -445,11 +528,13 @@ export interface ProjectUsageStats {
 
 export async function getProjectUsageStats(projectId: string): Promise<ProjectUsageStats | null> {
     noStore();
+    const supabase = await createClient();
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString();
 
-    // Get project
-    const { data: project } = await supabase
+    // 1. Fetch project and structural data
+    const { data: project, error: pError } = await supabase
         .from('projects')
         .select('id, name')
         .eq('id', projectId)
@@ -457,100 +542,72 @@ export async function getProjectUsageStats(projectId: string): Promise<ProjectUs
 
     if (!project) return null;
 
-    // Get questionnaires for this project
-    const { data: questionnaires } = await supabase
-        .from('questionnaires')
-        .select('id, title, questions, created_at')
-        .eq('project_id', projectId);
+    // 2. Fetch all project related data in parallel
+    const [
+        { data: questionnaires },
+        { data: totalStats },
+        { data: recentResponses }
+    ] = await Promise.all([
+        supabase.from('questionnaires').select('id, title, questions, created_at').eq('project_id', projectId),
+        supabase.from('questionnaire_stats').select('questionnaire_id, response_count'),
+        supabase.from('responses').select('questionnaire_id, submitted_at').gte('submitted_at', sixMonthsAgo)
+    ]);
 
-    const questionnaireIds = questionnaires?.map(q => q.id) || [];
+    const qData = questionnaires || [];
+    const qIds = qData.map(q => q.id);
 
-    // Get total response count using count option
-    let totalResponseCount = 0;
-    let thisMonthResponsesCount = 0;
+    // 3. Pre-process response data
+    const totalCountMap: Record<string, number> = {};
+    totalStats?.forEach(s => totalCountMap[s.questionnaire_id] = Number(s.response_count));
 
-    if (questionnaireIds.length > 0) {
-        const { count: total } = await supabase
-            .from('responses')
-            .select('*', { count: 'exact', head: true })
-            .in('questionnaire_id', questionnaireIds);
+    const monthCountMap: Record<string, number> = {};
+    const monthlyTrendData: Record<string, number> = {};
 
-        const { count: thisMonth } = await supabase
-            .from('responses')
-            .select('*', { count: 'exact', head: true })
-            .in('questionnaire_id', questionnaireIds)
-            .gte('submitted_at', startOfMonth);
+    recentResponses?.forEach(r => {
+        // Only process responses for questionnaires in THIS project
+        if (!qIds.includes(r.questionnaire_id)) return;
 
-        totalResponseCount = total || 0;
-        thisMonthResponsesCount = thisMonth || 0;
-    }
+        const submittedAt = new Date(r.submitted_at);
 
-    // Calculate overall stats
-    const totalQuestions = questionnaires?.reduce((sum, q) => sum + (q.questions?.length || 0), 0) || 0;
-
-    // This month questionnaires
-    const thisMonthQuestionnaires = questionnaires?.filter(q =>
-        new Date(q.created_at) >= new Date(startOfMonth)
-    ) || [];
-
-    // Per questionnaire stats using count
-    const perQuestionnaire: ProjectUsageStats['perQuestionnaire'] = [];
-    for (const q of (questionnaires || [])) {
-        const { count: qTotal } = await supabase
-            .from('responses')
-            .select('*', { count: 'exact', head: true })
-            .eq('questionnaire_id', q.id);
-
-        const { count: qThisMonth } = await supabase
-            .from('responses')
-            .select('*', { count: 'exact', head: true })
-            .eq('questionnaire_id', q.id)
-            .gte('submitted_at', startOfMonth);
-
-        perQuestionnaire.push({
-            id: q.id,
-            title: q.title,
-            questionCount: q.questions?.length || 0,
-            thisMonthResponses: qThisMonth || 0,
-            totalResponses: qTotal || 0
-        });
-    }
-    perQuestionnaire.sort((a, b) => b.totalResponses - a.totalResponses);
-
-    // Monthly trend (last 6 months) using count
-    const monthlyTrend: ProjectUsageStats['monthlyTrend'] = [];
-    for (let i = 5; i >= 0; i--) {
-        const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
-
-        let monthCount = 0;
-        if (questionnaireIds.length > 0) {
-            const { count } = await supabase
-                .from('responses')
-                .select('*', { count: 'exact', head: true })
-                .in('questionnaire_id', questionnaireIds)
-                .gte('submitted_at', monthStart.toISOString())
-                .lte('submitted_at', monthEnd.toISOString());
-            monthCount = count || 0;
+        if (submittedAt >= new Date(startOfMonth)) {
+            monthCountMap[r.questionnaire_id] = (monthCountMap[r.questionnaire_id] || 0) + 1;
         }
 
-        monthlyTrend.push({
-            month: monthStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-            responses: monthCount
-        });
-    }
+        const monthKey = submittedAt.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        monthlyTrendData[monthKey] = (monthlyTrendData[monthKey] || 0) + 1;
+    });
+
+    // 4. Build per-questionnaire stats
+    const perQuestionnaire = qData.map(q => ({
+        id: q.id,
+        title: q.title,
+        questionCount: q.questions?.length || 0,
+        thisMonthResponses: monthCountMap[q.id] || 0,
+        totalResponses: totalCountMap[q.id] || 0
+    })).sort((a, b) => b.totalResponses - a.totalResponses);
+
+    // 5. Build monthly trend
+    const monthlyTrend = Array.from({ length: 6 }, (_, idx) => {
+        const i = 5 - idx;
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const month = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        return {
+            month,
+            responses: monthlyTrendData[month] || 0
+        };
+    });
 
     return {
         projectId: project.id,
         projectName: project.name,
         overall: {
-            totalQuestionnaires: questionnaires?.length || 0,
-            totalQuestions,
-            totalResponses: totalResponseCount
+            totalQuestionnaires: qData.length,
+            totalQuestions: qData.reduce((sum, q) => sum + (q.questions?.length || 0), 0),
+            totalResponses: perQuestionnaire.reduce((sum, q) => sum + q.totalResponses, 0)
         },
         thisMonth: {
-            newQuestionnaires: thisMonthQuestionnaires.length,
-            newResponses: thisMonthResponsesCount
+            newQuestionnaires: qData.filter(q => new Date(q.created_at) >= new Date(startOfMonth)).length,
+            newResponses: perQuestionnaire.reduce((sum, q) => sum + q.thisMonthResponses, 0)
         },
         perQuestionnaire,
         monthlyTrend

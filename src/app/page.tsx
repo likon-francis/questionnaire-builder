@@ -45,9 +45,9 @@ export default function Dashboard() {
       setNewProjectName('');
       setNewProjectDesc('');
       router.push(`/project/${id}`);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to create project', e);
-      alert('Failed to create project');
+      alert('Failed to create project: ' + e.message);
     }
   };
 

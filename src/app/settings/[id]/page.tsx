@@ -2,6 +2,7 @@
 import { useEffect, useState, use } from 'react';
 import { Questionnaire } from '@/types/schema';
 import { getQuestionnaire, saveQuestionnaire } from '../../actions';
+import QuestionnaireHeader from '@/components/QuestionnaireHeader';
 
 export default function SettingsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -55,62 +56,65 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
     if (!q) return <div className="container" style={{ padding: '4rem' }}>Questionnaire not found</div>;
 
     return (
-        <div className="container" style={{ padding: '2rem 0', maxWidth: '600px' }}>
-            <h1 style={{ marginBottom: '2rem' }}>Settings</h1>
+        <>
+            <QuestionnaireHeader activeId={id} />
+            <div className="container" style={{ padding: '2rem 0', maxWidth: '600px' }}>
+                <h1 style={{ marginBottom: '2rem' }}>Settings</h1>
 
-            <div className="card">
-                <h3 style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>General Settings</h3>
+                <div className="card">
+                    <h3 style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>General Settings</h3>
 
-                <div style={{ marginBottom: '1.5rem' }}>
-                    <label className="label">Questions Per Page</label>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--secondary-foreground)', marginBottom: '0.5rem' }}>
-                        Default is 5. Set to 0 to show all questions on one page.
-                    </p>
-                    <input
-                        type="number"
-                        className="input"
-                        value={perPage}
-                        onChange={e => setPerPage(e.target.value === '' ? '' : Number(e.target.value))}
-                        placeholder="Default: 5"
-                    />
-                </div>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label className="label">Questions Per Page</label>
+                        <p style={{ fontSize: '0.875rem', color: 'var(--secondary-foreground)', marginBottom: '0.5rem' }}>
+                            Default is 5. Set to 0 to show all questions on one page.
+                        </p>
+                        <input
+                            type="number"
+                            className="input"
+                            value={perPage}
+                            onChange={e => setPerPage(e.target.value === '' ? '' : Number(e.target.value))}
+                            placeholder="Default: 5"
+                        />
+                    </div>
 
-                <div style={{ marginBottom: '1.5rem' }}>
-                    <label className="label">Webhook URL</label>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--secondary-foreground)', marginBottom: '0.5rem' }}>
-                        We will send a POST request with the response JSON to this URL upon submission.
-                    </p>
-                    <input
-                        className="input"
-                        value={webhook}
-                        onChange={e => setWebhook(e.target.value)}
-                        placeholder="https://api.yourapp.com/hook"
-                    />
-                </div>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label className="label">Webhook URL</label>
+                        <p style={{ fontSize: '0.875rem', color: 'var(--secondary-foreground)', marginBottom: '0.5rem' }}>
+                            We will send a POST request with the response JSON to this URL upon submission.
+                        </p>
+                        <input
+                            className="input"
+                            value={webhook}
+                            onChange={e => setWebhook(e.target.value)}
+                            placeholder="https://api.yourapp.com/hook"
+                        />
+                    </div>
 
-                <div style={{ marginBottom: '1.5rem' }}>
-                    <label className="label">Access Passcode</label>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--secondary-foreground)', marginBottom: '0.5rem' }}>
-                        Optional: Require users to enter this passcode to view the survey.
-                    </p>
-                    <input
-                        className="input"
-                        value={passcode}
-                        onChange={e => setPasscode(e.target.value)}
-                        placeholder="e.g. 1234"
-                    />
-                </div>
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label className="label">Access Passcode</label>
+                        <p style={{ fontSize: '0.875rem', color: 'var(--secondary-foreground)', marginBottom: '0.5rem' }}>
+                            Optional: Require users to enter this passcode to view the survey.
+                        </p>
+                        <input
+                            className="input"
+                            value={passcode}
+                            onChange={e => setPasscode(e.target.value)}
+                            placeholder="e.g. 1234"
+                        />
+                    </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem' }}>
-                    <button
-                        onClick={handleSave}
-                        className="btn btn-primary"
-                        disabled={saving}
-                    >
-                        {saving ? 'Saving...' : 'Save Settings'}
-                    </button>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '2rem' }}>
+                        <button
+                            onClick={handleSave}
+                            className="btn btn-primary"
+                            disabled={saving}
+                        >
+                            {saving ? 'Saving...' : 'Save Settings'}
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 }

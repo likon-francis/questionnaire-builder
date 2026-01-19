@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, FileText, BarChart2, Edit3, Eye, Calendar, Layout, Trash2, CheckCircle2, Clock } from 'lucide-react';
+import { ArrowLeft, Plus, FileText, BarChart2, Edit3, Eye, Calendar, Layout, Trash2, CheckCircle2, Clock, PieChart } from 'lucide-react';
 import { Questionnaire, Project } from '@/types/schema';
 import { getQuestionnaires, getProject, saveProject } from '../../actions';
 
@@ -18,9 +18,11 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     useEffect(() => {
         async function load() {
             try {
+                // Decode the ID to ensure it matches the database value (handling potential URL encoding)
+                const projectId = decodeURIComponent(unwrappedParams.id);
                 const [data, proj] = await Promise.all([
-                    getQuestionnaires(unwrappedParams.id),
-                    getProject(unwrappedParams.id)
+                    getQuestionnaires(projectId),
+                    getProject(projectId)
                 ]);
                 setList(data);
                 setProject(proj);
@@ -233,16 +235,20 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: 'auto' }}>
-                            <Link href={`/survey/${q.id}`} className="btn btn-secondary" style={{ flex: 1 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: 'auto' }}>
+                            <Link href={`/survey/${q.id}`} className="btn btn-secondary" style={{ width: '100%' }}>
                                 <Eye size={16} />
                                 View
                             </Link>
-                            <Link href={`/stats/${q.id}`} className="btn btn-secondary" style={{ flex: 1 }}>
+                            <Link href={`/stats/${q.id}`} className="btn btn-secondary" style={{ width: '100%' }}>
                                 <BarChart2 size={16} />
                                 Stats
                             </Link>
-                            <Link href={`/builder/${q.id}`} className="btn btn-primary" style={{ flex: 1 }}>
+                            <Link href={`/report/${q.id}`} className="btn btn-secondary" style={{ width: '100%' }}>
+                                <PieChart size={16} />
+                                Report
+                            </Link>
+                            <Link href={`/builder/${q.id}`} className="btn btn-primary" style={{ width: '100%' }}>
                                 <Edit3 size={16} />
                                 Edit
                             </Link>

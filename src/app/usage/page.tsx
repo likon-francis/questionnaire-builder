@@ -208,8 +208,19 @@ export default function UsagePage() {
                           }}>
                             +{project.thisMonthResponses} this month
                           </span>
+                        ) : (Date.now() - (project.lastActivityAt || 0) < 30 * 24 * 60 * 60 * 1000) ? (
+                          <span style={{
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            color: '#2563eb',
+                            padding: '0.375rem 0.75rem',
+                            borderRadius: '9999px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700
+                          }}>
+                            Active
+                          </span>
                         ) : (
-                          <span style={{ color: 'var(--secondary-foreground)', fontSize: '0.875rem' }}>Inactive</span>
+                          <span style={{ color: 'var(--secondary-foreground)', fontSize: '0.875rem' }}>No recent responses</span>
                         )}
                       </td>
                       <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontWeight: 700 }}>

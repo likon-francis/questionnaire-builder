@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Questionnaire, Question, LogicRule } from '@/types/schema';
 import { getQuestionnaire, submitResponse } from '../../actions';
+import QuestionnaireHeader from '@/components/QuestionnaireHeader';
 
 export default function SurveyViewer() {
     const params = useParams();
@@ -81,26 +82,29 @@ export default function SurveyViewer() {
 
     if (authorized === false) {
         return (
-            <div className="container" style={{ padding: '4rem 0', maxWidth: '400px', textAlign: 'center' }}>
-                <div className="card">
-                    <h2 style={{ marginBottom: '1rem' }}>Enter Passcode</h2>
-                    <p style={{ marginBottom: '1.5rem', color: 'var(--secondary-foreground)' }}>This survey is password protected.</p>
-                    <form onSubmit={handlePasscodeSubmit}>
-                        <input
-                            type="password"
-                            className="input"
-                            style={{ marginBottom: '1rem' }}
-                            value={passcodeInput}
-                            onChange={e => setPasscodeInput(e.target.value)}
-                            placeholder="Passcode"
-                            autoFocus
-                        />
-                        <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                            Access Survey
-                        </button>
-                    </form>
+            <>
+                <QuestionnaireHeader activeId={id} />
+                <div className="container" style={{ padding: '4rem 0', maxWidth: '400px', textAlign: 'center' }}>
+                    <div className="card">
+                        <h2 style={{ marginBottom: '1rem' }}>Enter Passcode</h2>
+                        <p style={{ marginBottom: '1.5rem', color: 'var(--secondary-foreground)' }}>This survey is password protected.</p>
+                        <form onSubmit={handlePasscodeSubmit}>
+                            <input
+                                type="password"
+                                className="input"
+                                style={{ marginBottom: '1rem' }}
+                                value={passcodeInput}
+                                onChange={e => setPasscodeInput(e.target.value)}
+                                placeholder="Passcode"
+                                autoFocus
+                            />
+                            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                                Access Survey
+                            </button>
+                        </form>
+                    </div>
                 </div>
-            </div>
+            </>
         );
     }
 
@@ -188,172 +192,178 @@ export default function SurveyViewer() {
 
     if (submitted) return (
         // ... existing submitted UI ...
-        <div className="container card" style={{ textAlign: 'center', marginTop: '4rem', maxWidth: '500px' }}>
-            <h2 style={{ marginBottom: '1rem', color: 'var(--primary)' }}>Thank you!</h2>
-            <p style={{ marginBottom: '2rem' }}>Your response has been recorded.</p>
-            <Link href="/" className="btn btn-primary">Back to Dashboard</Link>
-        </div>
+        <>
+            <QuestionnaireHeader activeId={id} />
+            <div className="container card" style={{ textAlign: 'center', marginTop: '4rem', maxWidth: '500px' }}>
+                <h2 style={{ marginBottom: '1rem', color: 'var(--primary)' }}>Thank you!</h2>
+                <p style={{ marginBottom: '2rem' }}>Your response has been recorded.</p>
+                <Link href="/" className="btn btn-primary">Back to Dashboard</Link>
+            </div>
+        </>
     );
 
     return (
-        <div className="container" style={{ padding: '2rem 0', maxWidth: '600px' }}>
-            <div className="card">
-                <h1 style={{ marginBottom: '0.5rem', fontSize: '1.5rem' }}>{q?.title}</h1>
-                <p style={{ marginBottom: '2rem', color: 'var(--secondary-foreground)' }}>Please answer the following questions.</p>
+        <>
+            <QuestionnaireHeader activeId={id} />
+            <div className="container" style={{ padding: '2rem 0', maxWidth: '600px' }}>
+                <div className="card">
+                    <h1 style={{ marginBottom: '0.5rem', fontSize: '1.5rem' }}>{q?.title}</h1>
+                    <p style={{ marginBottom: '2rem', color: 'var(--secondary-foreground)' }}>Please answer the following questions.</p>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    {currentQuestions.map(question => (
-                        <div key={question.id} className="animate-fade-in">
-                            <label className="label">
-                                {question.title} {question.required && <span style={{ color: 'red' }}>*</span>}
-                            </label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        {currentQuestions.map(question => (
+                            <div key={question.id} className="animate-fade-in">
+                                <label className="label">
+                                    {question.title} {question.required && <span style={{ color: 'red' }}>*</span>}
+                                </label>
 
-                            {/* Render Input based on type */}
-                            {question.type === 'text' && (
-                                <input className={`input ${errors[question.id] ? 'input-error' : ''}`}
-                                    style={errors[question.id] ? { borderColor: 'red' } : {}}
-                                    value={answers[question.id] || ''}
-                                    onChange={e => {
-                                        setAnswers({ ...answers, [question.id]: e.target.value });
-                                        if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
-                                    }}
-                                    placeholder="Your answer"
-                                />
-                            )}
-                            {question.type === 'number' && (
-                                <input className="input" type="number"
-                                    style={errors[question.id] ? { borderColor: 'red' } : {}}
-                                    value={answers[question.id] || ''}
-                                    onChange={e => {
-                                        setAnswers({ ...answers, [question.id]: Number(e.target.value) });
-                                        if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
-                                    }}
-                                />
-                            )}
-                            {question.type === 'date' && (
-                                <input className="input" type="date"
-                                    style={errors[question.id] ? { borderColor: 'red' } : {}}
-                                    value={answers[question.id] || ''}
-                                    onChange={e => {
-                                        setAnswers({ ...answers, [question.id]: e.target.value });
-                                        if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
-                                    }}
-                                />
-                            )}
-                            {(question.type === 'single-select') && (
-                                <select className="input"
-                                    style={errors[question.id] ? { borderColor: 'red' } : {}}
-                                    value={answers[question.id] || ''}
-                                    onChange={e => {
-                                        setAnswers({ ...answers, [question.id]: e.target.value });
-                                        if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
-                                    }}
-                                >
-                                    <option value="">Select...</option>
-                                    {question.options?.map(o => (
-                                        <option key={o.value} value={o.value}>{o.label}</option>
-                                    ))}
-                                </select>
-                            )}
-                            {question.type === 'multi-select' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem', border: errors[question.id] ? '1px solid red' : '1px solid transparent', borderRadius: 'var(--radius)' }}>
-                                    {question.options?.map(o => (
-                                        <label key={o.value} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.875rem' }}>
-                                            <input type="checkbox"
-                                                checked={((answers[question.id] as string[]) || []).includes(o.value)}
-                                                onChange={e => {
-                                                    const current = (answers[question.id] as string[]) || [];
-                                                    let newVal;
-                                                    if (e.target.checked) newVal = [...current, o.value];
-                                                    else newVal = current.filter(v => v !== o.value);
+                                {/* Render Input based on type */}
+                                {question.type === 'text' && (
+                                    <input className={`input ${errors[question.id] ? 'input-error' : ''}`}
+                                        style={errors[question.id] ? { borderColor: 'red' } : {}}
+                                        value={answers[question.id] || ''}
+                                        onChange={e => {
+                                            setAnswers({ ...answers, [question.id]: e.target.value });
+                                            if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
+                                        }}
+                                        placeholder="Your answer"
+                                    />
+                                )}
+                                {question.type === 'number' && (
+                                    <input className="input" type="number"
+                                        style={errors[question.id] ? { borderColor: 'red' } : {}}
+                                        value={answers[question.id] || ''}
+                                        onChange={e => {
+                                            setAnswers({ ...answers, [question.id]: Number(e.target.value) });
+                                            if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
+                                        }}
+                                    />
+                                )}
+                                {question.type === 'date' && (
+                                    <input className="input" type="date"
+                                        style={errors[question.id] ? { borderColor: 'red' } : {}}
+                                        value={answers[question.id] || ''}
+                                        onChange={e => {
+                                            setAnswers({ ...answers, [question.id]: e.target.value });
+                                            if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
+                                        }}
+                                    />
+                                )}
+                                {(question.type === 'single-select') && (
+                                    <select className="input"
+                                        style={errors[question.id] ? { borderColor: 'red' } : {}}
+                                        value={answers[question.id] || ''}
+                                        onChange={e => {
+                                            setAnswers({ ...answers, [question.id]: e.target.value });
+                                            if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
+                                        }}
+                                    >
+                                        <option value="">Select...</option>
+                                        {question.options?.map(o => (
+                                            <option key={o.value} value={o.value}>{o.label}</option>
+                                        ))}
+                                    </select>
+                                )}
+                                {question.type === 'multi-select' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem', border: errors[question.id] ? '1px solid red' : '1px solid transparent', borderRadius: 'var(--radius)' }}>
+                                        {question.options?.map(o => (
+                                            <label key={o.value} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '0.875rem' }}>
+                                                <input type="checkbox"
+                                                    checked={((answers[question.id] as string[]) || []).includes(o.value)}
+                                                    onChange={e => {
+                                                        const current = (answers[question.id] as string[]) || [];
+                                                        let newVal;
+                                                        if (e.target.checked) newVal = [...current, o.value];
+                                                        else newVal = current.filter(v => v !== o.value);
 
-                                                    setAnswers({ ...answers, [question.id]: newVal });
+                                                        setAnswers({ ...answers, [question.id]: newVal });
+                                                        if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
+                                                    }}
+                                                />
+                                                {o.label}
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                                {question.type === 'boolean' && (
+                                    <div style={{
+                                        display: 'flex',
+                                        gap: '1rem',
+                                        border: errors[question.id] ? '1px solid red' : '1px solid transparent',
+                                        borderRadius: 'var(--radius)',
+                                        padding: '0.5rem'
+                                    }}>
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            padding: '0.75rem 1.5rem',
+                                            background: answers[question.id] === true ? '#d1fae5' : 'var(--secondary)',
+                                            border: answers[question.id] === true ? '2px solid #10b981' : '2px solid transparent',
+                                            borderRadius: 'var(--radius)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name={question.id}
+                                                checked={answers[question.id] === true}
+                                                onChange={() => {
+                                                    setAnswers({ ...answers, [question.id]: true });
                                                     if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
                                                 }}
+                                                style={{ display: 'none' }}
                                             />
-                                            {o.label}
+                                            <span style={{ fontWeight: answers[question.id] === true ? 600 : 400 }}>Yes</span>
                                         </label>
-                                    ))}
-                                </div>
+                                        <label style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            padding: '0.75rem 1.5rem',
+                                            background: answers[question.id] === false ? '#fee2e2' : 'var(--secondary)',
+                                            border: answers[question.id] === false ? '2px solid #ef4444' : '2px solid transparent',
+                                            borderRadius: 'var(--radius)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name={question.id}
+                                                checked={answers[question.id] === false}
+                                                onChange={() => {
+                                                    setAnswers({ ...answers, [question.id]: false });
+                                                    if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
+                                                }}
+                                                style={{ display: 'none' }}
+                                            />
+                                            <span style={{ fontWeight: answers[question.id] === false ? 600 : 400 }}>No</span>
+                                        </label>
+                                    </div>
+                                )}
+                                {errors[question.id] && <span style={{ color: 'red', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>{errors[question.id]}</span>}
+                            </div>
+                        ))}
+
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                            {hasPagination && page > 0 && (
+                                <button onClick={handleBack} className="btn btn-secondary" style={{ flex: 1 }}>Back</button>
                             )}
-                            {question.type === 'boolean' && (
-                                <div style={{
-                                    display: 'flex',
-                                    gap: '1rem',
-                                    border: errors[question.id] ? '1px solid red' : '1px solid transparent',
-                                    borderRadius: 'var(--radius)',
-                                    padding: '0.5rem'
-                                }}>
-                                    <label style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        padding: '0.75rem 1.5rem',
-                                        background: answers[question.id] === true ? '#d1fae5' : 'var(--secondary)',
-                                        border: answers[question.id] === true ? '2px solid #10b981' : '2px solid transparent',
-                                        borderRadius: 'var(--radius)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s'
-                                    }}>
-                                        <input
-                                            type="radio"
-                                            name={question.id}
-                                            checked={answers[question.id] === true}
-                                            onChange={() => {
-                                                setAnswers({ ...answers, [question.id]: true });
-                                                if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
-                                            }}
-                                            style={{ display: 'none' }}
-                                        />
-                                        <span style={{ fontWeight: answers[question.id] === true ? 600 : 400 }}>Yes</span>
-                                    </label>
-                                    <label style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        padding: '0.75rem 1.5rem',
-                                        background: answers[question.id] === false ? '#fee2e2' : 'var(--secondary)',
-                                        border: answers[question.id] === false ? '2px solid #ef4444' : '2px solid transparent',
-                                        borderRadius: 'var(--radius)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s'
-                                    }}>
-                                        <input
-                                            type="radio"
-                                            name={question.id}
-                                            checked={answers[question.id] === false}
-                                            onChange={() => {
-                                                setAnswers({ ...answers, [question.id]: false });
-                                                if (errors[question.id]) setErrors({ ...errors, [question.id]: '' });
-                                            }}
-                                            style={{ display: 'none' }}
-                                        />
-                                        <span style={{ fontWeight: answers[question.id] === false ? 600 : 400 }}>No</span>
-                                    </label>
-                                </div>
+
+                            {(!hasPagination || page === totalPages - 1) ? (
+                                <button onClick={handleSubmit} className="btn btn-primary" style={{ flex: 1 }}>
+                                    Submit Response
+                                </button>
+                            ) : (
+                                <button onClick={handleNext} className="btn btn-primary" style={{ flex: 1 }}>
+                                    Next
+                                </button>
                             )}
-                            {errors[question.id] && <span style={{ color: 'red', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>{errors[question.id]}</span>}
                         </div>
-                    ))}
-
-                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                        {hasPagination && page > 0 && (
-                            <button onClick={handleBack} className="btn btn-secondary" style={{ flex: 1 }}>Back</button>
-                        )}
-
-                        {(!hasPagination || page === totalPages - 1) ? (
-                            <button onClick={handleSubmit} className="btn btn-primary" style={{ flex: 1 }}>
-                                Submit Response
-                            </button>
-                        ) : (
-                            <button onClick={handleNext} className="btn btn-primary" style={{ flex: 1 }}>
-                                Next
-                            </button>
-                        )}
+                        {hasPagination && <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--secondary-foreground)' }}>Page {page + 1} of {totalPages}</div>}
                     </div>
-                    {hasPagination && <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--secondary-foreground)' }}>Page {page + 1} of {totalPages}</div>}
                 </div>
             </div>
-        </div>
+        </>
     );
 }
